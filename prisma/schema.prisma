@@ -1,0 +1,238 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  SAVING
+  INVESTMENT
+  DEBT_PAYMENT
+}
+
+enum AssetType {
+  BANK
+  SAVINGS
+  INVESTMENT
+  CRYPTO
+  PROPERTY
+  VEHICLE
+  OTHER
+}
+
+enum DebtType {
+  MORTGAGE
+  PERSONAL_LOAN
+  STUDENT_LOAN
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  categories   Category[]
+  assets       Asset[]
+  debts        Debt[]
+  snapshots    NetWorthSnapshot[]
+  goals        Goal[]
+  scenarios    Scenario[]
+  fireSettings FireSettings?
+}
+
+model Category {
+  id             String       @id @default(cuid())
+  userId         String
+  name           String
+  type           CategoryType
+  active         Boolean      @default(true)
+  fixedCost      Boolean      @default(false)
+
+  // Legacy field kept temporarily for backwards compatibility.
+  // New values are stored in BudgetStandard per year.
+  standardAmount Decimal?     @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  budgetStandards BudgetStandard[]
+  budgetOverrides BudgetOverride[]
+  actuals         BudgetActual[]
+
+  @@index([userId])
+}
+
+model BudgetStandard {
+  id         String   @id @default(cuid())
+  categoryId String
+  year       Int
+  amount     Decimal  @db.Decimal(18, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, year])
+  @@index([categoryId])
+  @@index([year])
+}
+
+model BudgetOverride {
+  id         String   @id @default(cuid())
+  categoryId String
+  year       Int
+  month      Int
+  amount     Decimal  @db.Decimal(18, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, year, month])
+  @@index([categoryId])
+  @@index([year, month])
+}
+
+model BudgetActual {
+  id         String   @id @default(cuid())
+  categoryId String
+  year       Int
+  month      Int
+  amount     Decimal  @db.Decimal(18, 2)
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, year, month])
+  @@index([categoryId])
+  @@index([year, month])
+}
+
+model Asset {
+  id           String    @id @default(cuid())
+  userId       String
+  name         String
+  type         AssetType
+  currentValue Decimal   @db.Decimal(18, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotValues NetWorthSnapshotValue[]
+
+  @@index([userId])
+}
+
+model Debt {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  type           DebtType
+  currentBalance Decimal  @db.Decimal(18, 2)
+  interestRate   Decimal? @db.Decimal(8, 4)
+  monthlyPayment Decimal? @db.Decimal(18, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshotValues NetWorthSnapshotDebtValue[]
+
+  @@index([userId])
+}
+
+model NetWorthSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime
+  note      String?
+  createdAt DateTime @default(now())
+
+  user        User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assetValues NetWorthSnapshotValue[]
+  debtValues  NetWorthSnapshotDebtValue[]
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model NetWorthSnapshotValue {
+  id         String   @id @default(cuid())
+  snapshotId String
+  assetId    String
+  value      Decimal  @db.Decimal(18, 2)
+
+  snapshot NetWorthSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  asset    Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, assetId])
+}
+
+model NetWorthSnapshotDebtValue {
+  id         String   @id @default(cuid())
+  snapshotId String
+  debtId     String
+  value      Decimal  @db.Decimal(18, 2)
+
+  snapshot NetWorthSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  debt     Debt             @relation(fields: [debtId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  targetValue Decimal  @db.Decimal(18, 2)
+  deadline    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Scenario {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model FireSettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+
+  monthlyExpenses     Decimal  @default(2500) @db.Decimal(18, 2)
+  annualReturn        Decimal  @default(7) @db.Decimal(8, 4)
+  inflation           Decimal  @default(2) @db.Decimal(8, 4)
+  withdrawalRate      Decimal  @default(4) @db.Decimal(8, 4)
+  monthlyContribution Decimal  @default(800) @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

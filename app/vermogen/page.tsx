@@ -1,0 +1,511 @@
+
+import { auth } from "@/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+
+import AssetForm from "./AssetForm";
+import AssetRow from "./AssetRow";
+import DebtForm from "./DebtForm";
+import DebtRow from "./DebtRow";
+import SnapshotForm from "./SnapshotForm";
+import SnapshotRow from "./SnapshotRow";
+import NetWorthChart from "./NetWorthChart";
+
+export const dynamic = "force-dynamic";
+
+export default async function VermogenPage() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const assets = await prisma.asset.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const debts = await prisma.debt.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const snapshots = await prisma.netWorthSnapshot.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    include: {
+      assetValues: true,
+      debtValues: true,
+    },
+    orderBy: {
+      date: "desc",
+    },
+  });
+
+  const totalAssets = assets.reduce(
+    (total, asset) => total + Number(asset.currentValue),
+    0
+  );
+
+  const totalDebts = debts.reduce(
+    (total, debt) => total + Number(debt.currentBalance),
+    0
+  );
+
+  const netWorth = totalAssets - totalDebts;
+
+  const chartSnapshots = snapshots.map((snapshot) => {
+    const snapshotAssets = snapshot.assetValues.reduce(
+      (total, asset) => total + Number(asset.value),
+      0
+    );
+
+    const snapshotDebts = snapshot.debtValues.reduce(
+      (total, debt) => total + Number(debt.value),
+      0
+    );
+
+    return {
+      date: snapshot.date.toISOString(),
+      assets: snapshotAssets,
+      debts: snapshotDebts,
+      netWorth: snapshotAssets - snapshotDebts,
+    };
+  });
+
+  return (
+    <main
+      style={{
+        padding: 32,
+        maxWidth: 1400,
+        margin: "0 auto",
+      }}
+    >
+      <div style={{ marginBottom: 32 }}>
+        <h1
+          style={{
+            fontSize: 36,
+            margin: 0,
+          }}
+        >
+          Vermogen
+        </h1>
+
+        <p
+          style={{
+            marginTop: 8,
+            color: "#6b7280",
+            fontSize: 16,
+          }}
+        >
+          Overzicht van je bezittingen, schulden en netto vermogen.
+        </p>
+      </div>
+
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        <SummaryCard
+          title="Totale bezittingen"
+          value={formatEuro(totalAssets)}
+        />
+
+        <SummaryCard
+          title="Totale schulden"
+          value={formatEuro(totalDebts)}
+        />
+
+        <SummaryCard
+          title="Netto vermogen"
+          value={formatEuro(netWorth)}
+        />
+      </section>
+
+      <section
+        style={{
+          background: "white",
+          border: "1px solid #e3e7ed",
+          borderRadius: 14,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0 }}>
+            Vermogensontwikkeling
+          </h2>
+
+          <p
+            style={{
+              marginTop: 6,
+              marginBottom: 0,
+              color: "#6b7280",
+            }}
+          >
+            Ontwikkeling van je bezittingen, schulden en netto
+            vermogen op basis van je historische snapshots.
+          </p>
+        </div>
+
+        <NetWorthChart snapshots={chartSnapshots} />
+      </section>
+
+      <section
+        style={{
+          background: "white",
+          border: "1px solid #e3e7ed",
+          borderRadius: 14,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0 }}>
+              Bezittingen
+            </h2>
+
+            <p
+              style={{
+                marginTop: 6,
+                marginBottom: 0,
+                color: "#6b7280",
+              }}
+            >
+              Je huidige bezittingen en hun waarde.
+            </p>
+          </div>
+
+          <AssetForm />
+        </div>
+
+        {assets.length === 0 ? (
+          <div
+            style={{
+              padding: 24,
+              border: "1px dashed #d1d5db",
+              borderRadius: 10,
+              color: "#6b7280",
+              textAlign: "center",
+            }}
+          >
+            Je hebt nog geen bezittingen toegevoegd.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {assets.map((asset) => (
+              <AssetRow
+                key={asset.id}
+                id={asset.id}
+                name={asset.name}
+                type={asset.type}
+                value={Number(asset.currentValue)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section
+        style={{
+          background: "white",
+          border: "1px solid #e3e7ed",
+          borderRadius: 14,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0 }}>
+              Schulden
+            </h2>
+
+            <p
+              style={{
+                marginTop: 6,
+                marginBottom: 0,
+                color: "#6b7280",
+              }}
+            >
+              Je huidige schulden en openstaande bedragen.
+            </p>
+          </div>
+
+          <DebtForm />
+        </div>
+
+        {debts.length === 0 ? (
+          <div
+            style={{
+              padding: 24,
+              border: "1px dashed #d1d5db",
+              borderRadius: 10,
+              color: "#6b7280",
+              textAlign: "center",
+            }}
+          >
+            Je hebt nog geen schulden toegevoegd.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {debts.map((debt) => (
+              <DebtRow
+                key={debt.id}
+                id={debt.id}
+                name={debt.name}
+                type={debt.type}
+                value={Number(debt.currentBalance)}
+                interestRate={
+                  debt.interestRate == null
+                    ? null
+                    : Number(debt.interestRate)
+                }
+                monthlyPayment={
+                  debt.monthlyPayment == null
+                    ? null
+                    : Number(debt.monthlyPayment)
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section
+        style={{
+          background: "white",
+          border: "1px solid #e3e7ed",
+          borderRadius: 14,
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 20,
+          }}
+        >
+          <div>
+            <h2 style={{ margin: 0 }}>
+              Vermogenssnapshots
+            </h2>
+
+            <p
+              style={{
+                marginTop: 6,
+                marginBottom: 0,
+                color: "#6b7280",
+              }}
+            >
+              Historische momentopnames van je vermogen.
+            </p>
+          </div>
+
+          <SnapshotForm />
+        </div>
+
+        {snapshots.length === 0 ? (
+          <div
+            style={{
+              padding: 24,
+              border: "1px dashed #d1d5db",
+              borderRadius: 10,
+              color: "#6b7280",
+              textAlign: "center",
+            }}
+          >
+            Je hebt nog geen vermogenssnapshot gemaakt.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            {snapshots.map((snapshot, index) => {
+              const snapshotAssets =
+                snapshot.assetValues.reduce(
+                  (total, asset) => total + Number(asset.value),
+                  0
+                );
+
+              const snapshotDebts =
+                snapshot.debtValues.reduce(
+                  (total, debt) => total + Number(debt.value),
+                  0
+                );
+
+              const snapshotNetWorth =
+                snapshotAssets - snapshotDebts;
+
+              const previousSnapshot = snapshots[index + 1];
+
+              let change: number | null = null;
+              let changePercentage: number | null = null;
+
+              if (previousSnapshot) {
+                const previousAssets =
+                  previousSnapshot.assetValues.reduce(
+                    (total, asset) => total + Number(asset.value),
+                    0
+                  );
+
+                const previousDebts =
+                  previousSnapshot.debtValues.reduce(
+                    (total, debt) => total + Number(debt.value),
+                    0
+                  );
+
+                const previousNetWorth =
+                  previousAssets - previousDebts;
+
+                change =
+                  snapshotNetWorth - previousNetWorth;
+
+                if (previousNetWorth !== 0) {
+                  changePercentage =
+                    (change / Math.abs(previousNetWorth)) * 100;
+                }
+              }
+
+              return (
+                <SnapshotRow
+                  key={snapshot.id}
+                  id={snapshot.id}
+                  date={snapshot.date}
+                  note={snapshot.note}
+                  assets={snapshotAssets}
+                  debts={snapshotDebts}
+                  netWorth={snapshotNetWorth}
+                  change={change}
+                  changePercentage={changePercentage}
+                  isLatest={index === 0}
+                />
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function SummaryCard({
+  title,
+  value,
+}: {
+  title: string;
+  value: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "white",
+        border: "1px solid #e3e7ed",
+        borderRadius: 14,
+        padding: 22,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 14,
+          color: "#6b7280",
+        }}
+      >
+        {title}
+      </div>
+
+      <div
+        style={{
+          fontSize: 30,
+          fontWeight: 700,
+          marginTop: 8,
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function debtTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    MORTGAGE: "Hypotheek",
+    PERSONAL_LOAN: "Persoonlijke lening",
+    STUDENT_LOAN: "Studieschuld",
+    OTHER: "Overig",
+  };
+
+  return labels[type] ?? type;
+}
+
+function formatEuro(value: number) {
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatPercentage(value: number) {
+  return (
+    new Intl.NumberFormat("nl-NL", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(value) + "%"
+  );
+}
+
+function formatDate(date: Date) {
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
