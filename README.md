@@ -2,9 +2,6 @@
 
 Technische testversie voor deployment via Dockge op TrueNAS.
 
-## Doelmap
-
-/mnt/raid-z-1/apps/dockge/data/finwise/v0.2
 
 ## Installatie in Dockge
 
@@ -14,9 +11,9 @@ Technische testversie voor deployment via Dockge op TrueNAS.
 4. Zorg dat `DATABASE_URL` hetzelfde database-wachtwoord gebruikt.
 5. Start de stack in Dockge met Compose Up.
 6. Open:
-   http://192.168.178.252:3000
+   http://ip:3000
 7. Controleer eventueel:
-   http://192.168.178.252:3000/api/health
+   http://ip:3000/api/health
 
 ## Database
 
