@@ -34,6 +34,17 @@ enum DebtType {
   OTHER
 }
 
+enum MortgageLoanType {
+  ANNUITY
+  LINEAR
+  INTEREST_ONLY
+}
+
+enum MortgageExtraPaymentFrequency {
+  ONE_TIME
+  MONTHLY
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -49,6 +60,8 @@ model User {
   goals        Goal[]
   scenarios    Scenario[]
   fireSettings FireSettings?
+
+  mortgages Mortgage[]
 }
 
 model Category {
@@ -151,6 +164,8 @@ model Debt {
   user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   snapshotValues NetWorthSnapshotDebtValue[]
 
+  mortgage Mortgage?
+
   @@index([userId])
 }
 
@@ -236,4 +251,86 @@ model FireSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// -----------------------------------------------------------------------------
+// Hypotheekmodule
+// -----------------------------------------------------------------------------
+
+model Mortgage {
+  id        String   @id @default(cuid())
+  userId    String
+  debtId    String   @unique
+  name      String   @default("Mijn hypotheek")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Eén hypotheek is gekoppeld aan precies één bestaande Debt.
+  debt Debt @relation(fields: [debtId], references: [id], onDelete: Restrict)
+
+  loanParts      MortgageLoanPart[]
+  balanceHistory MortgageBalanceHistory[]
+  extraPayments  MortgageExtraPayment[]
+
+  @@index([userId])
+}
+
+model MortgageLoanPart {
+  id         String          @id @default(cuid())
+  mortgageId String
+  name       String
+  loanType   MortgageLoanType
+
+  originalPrincipal Decimal  @db.Decimal(18, 2)
+  currentBalance    Decimal  @db.Decimal(18, 2)
+  interestRate     Decimal   @db.Decimal(8, 4)
+  monthlyPayment   Decimal?  @db.Decimal(18, 2)
+
+  startDate DateTime
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
+}
+
+model MortgageBalanceHistory {
+  id         String   @id @default(cuid())
+  mortgageId String
+  date       DateTime
+  totalBalance Decimal @db.Decimal(18, 2)
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@unique([mortgageId, date])
+  @@index([mortgageId])
+}
+
+model MortgageExtraPayment {
+  id         String   @id @default(cuid())
+  mortgageId String
+
+  name      String?
+  frequency MortgageExtraPaymentFrequency
+  amount    Decimal  @db.Decimal(18, 2)
+
+  startDate DateTime
+  endDate   DateTime?
+  note      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
+  @@index([startDate])
 }

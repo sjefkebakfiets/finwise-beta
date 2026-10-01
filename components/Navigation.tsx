@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -138,6 +137,25 @@ export default function Navigation() {
           borderTop: "1px solid #e2eaf2",
         }}
       >
+        <Link
+          href="/register"
+          style={{
+            display: "block",
+            padding: "12px 14px",
+            marginBottom: 10,
+            borderRadius: 9,
+            background: "#087f61",
+            color: "#ffffff",
+            textDecoration: "none",
+            textAlign: "center",
+            fontSize: 14,
+            fontWeight: 650,
+            transition: "background 0.15s ease",
+          }}
+        >
+          Registreer
+        </Link>
+
         <Link
           href="/instellingen"
           style={{
