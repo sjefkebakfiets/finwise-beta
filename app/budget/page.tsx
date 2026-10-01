@@ -575,6 +575,36 @@ export default async function BudgetPage({
     0
   );
 
+  // Werkelijke verdeling per type: inkomsten worden bewust uitgesloten.
+  const actualTypeBreakdown = groups
+    .filter((group) => group.type !== "INCOME")
+    .map((group) => {
+      const groupData = groupTotals.find(
+        (item) => item.type === group.type
+      );
+
+      const hasActual = groupData?.totals.actualExistsMonthly.some(Boolean) ?? false;
+      const amount = hasActual
+        ? (groupData?.totals.actualMonthly ?? []).reduce<number>(
+            (sum, value) => sum + value,
+            0
+          )
+        : 0;
+
+      return {
+        id: group.type,
+        name: group.title,
+        amount,
+        hasActual,
+      };
+    })
+    .filter((item) => item.hasActual && item.amount > 0);
+
+  const totalActualTypeAmount = actualTypeBreakdown.reduce<number>(
+    (sum, item) => sum + item.amount,
+    0
+  );
+
   const chartColors = [
     "#10b981",
     "#ef4444",
@@ -619,6 +649,41 @@ export default async function BudgetPage({
           )
           .join(", ")})`
       : "#e5e7eb";
+
+  let actualChartPosition = 0;
+
+  const actualChartSegments = actualTypeBreakdown.map((item) => {
+    const percentage =
+      totalActualTypeAmount > 0
+        ? (item.amount / totalActualTypeAmount) * 100
+        : 0;
+
+    const start = actualChartPosition;
+    actualChartPosition += percentage * 3.6;
+
+    const colorIndex = groups.findIndex(
+      (group) => group.type === item.id
+    );
+
+    return {
+      ...item,
+      percentage,
+      start,
+      end: actualChartPosition,
+      color: chartColors[colorIndex],
+    };
+  });
+
+  const actualPieChartGradient =
+    actualChartSegments.length > 0
+      ? `conic-gradient(${actualChartSegments
+          .map(
+            (segment) =>
+              `${segment.color} ${segment.start}deg ${segment.end}deg`
+          )
+          .join(", ")})`
+      : "#e5e7eb";
+
   const groupTotals = groups.map((group) => {
     const groupCategories = categories.filter(
       (category) => category.type === group.type
@@ -1054,6 +1119,175 @@ export default async function BudgetPage({
           </div>
         </div>
       </div>
+
+      {/* Werkelijke verdeling per type */}
+      <div
+        style={{
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 20,
+            fontWeight: 700,
+            color: "#111827",
+            margin: "0 0 20px",
+          }}
+        >
+          Werkelijke verdeling per type
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 1fr)",
+            gap: 32,
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 230,
+                height: 230,
+                borderRadius: "50%",
+                background: actualPieChartGradient,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: 125,
+                  height: 125,
+                  borderRadius: "50%",
+                  background: "white",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                }}
+              >
+                <span style={{ fontSize: 12, color: "#6b7280" }}>
+                  Totaal werkelijk
+                </span>
+                <strong
+                  style={{
+                    fontSize: 19,
+                    color: "#111827",
+                    marginTop: 5,
+                  }}
+                >
+                  {formatEuro(totalActualTypeAmount)}
+                </strong>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                  per jaar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(100px, 1fr) auto auto",
+                gap: "12px 16px",
+                alignItems: "center",
+                paddingBottom: 10,
+                borderBottom: "1px solid #e5e7eb",
+                fontSize: 12,
+                color: "#9ca3af",
+              }}
+            >
+              <span>Budgettype</span>
+              <span style={{ textAlign: "right" }}>Bedrag</span>
+              <span style={{ textAlign: "right" }}>%</span>
+            </div>
+
+            {actualChartSegments.map((segment) => (
+              <div
+                key={segment.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(100px, 1fr) auto auto",
+                  gap: "12px 16px",
+                  alignItems: "center",
+                  padding: "11px 0",
+                  borderBottom: "1px solid #f3f4f6",
+                  fontSize: 13,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    minWidth: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 11,
+                      height: 11,
+                      borderRadius: "50%",
+                      background: segment.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      color: "#374151",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {segment.name}
+                  </span>
+                </div>
+                <strong
+                  style={{
+                    textAlign: "right",
+                    color: "#111827",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatEuro(segment.amount)}
+                </strong>
+                <strong
+                  style={{
+                    textAlign: "right",
+                    color: "#6b7280",
+                    minWidth: 42,
+                  }}
+                >
+                  {segment.percentage.toFixed(1).replace(".", ",")}%
+                </strong>
+              </div>
+            ))}
+
+            {actualChartSegments.length === 0 && (
+              <p style={{ color: "#6b7280", fontSize: 13 }}>
+                Er zijn nog geen werkelijke bedragen ingevoerd voor dit jaar.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Legend */}
       <div
         style={{
