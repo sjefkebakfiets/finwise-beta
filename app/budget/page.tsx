@@ -508,7 +508,32 @@ export default async function BudgetPage({
       actualYear: hasActual ? actualYear : null,
     };
   }
+  const fixedCostsMonthly = months.map((_, index) => {
+    const month = index + 1;
 
+    return categories
+      .filter((category) => category.fixedCost)
+      .reduce((total, category) => {
+        const standardAmount = getStandardAmount(
+          category.id,
+          category.standardAmount
+        );
+
+        return (
+          total +
+          getPlannedAmount(
+            category.id,
+            standardAmount,
+            month
+          )
+        );
+      }, 0);
+  });
+
+  const fixedCostsYear = fixedCostsMonthly.reduce(
+    (total, amount) => total + amount,
+    0
+  );
   const groupTotals = groups.map((group) => {
     const groupCategories = categories.filter(
       (category) => category.type === group.type
@@ -669,7 +694,93 @@ export default async function BudgetPage({
           )}
         />
       </div>
+      {/* Vaste lasten per maand */}
+      <div
+        style={{
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 24,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 17,
+            fontWeight: 700,
+            color: "#111827",
+            marginBottom: 16,
+          }}
+        >
+          Vaste lasten per maand
+        </div>
 
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {months.map((month, index) => (
+            <div
+              key={month}
+              style={{
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
+                borderRadius: 8,
+                padding: 12,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#6b7280",
+                  marginBottom: 6,
+                }}
+              >
+                {month}
+              </div>
+
+              <div
+                style={{
+                  fontSize: 17,
+                  fontWeight: 700,
+                  color: "#111827",
+                }}
+              >
+                {formatEuro(fixedCostsMonthly[index])}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            marginTop: 16,
+            paddingTop: 14,
+            borderTop: "1px solid #e5e7eb",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <strong style={{ color: "#374151" }}>
+            Totaal vaste lasten dit jaar
+          </strong>
+
+          <strong
+            style={{
+              fontSize: 20,
+              color: "#111827",
+            }}
+          >
+            {formatEuro(fixedCostsYear)}
+          </strong>
+        </div>
+      </div>
       {/* Legend */}
       <div
         style={{
