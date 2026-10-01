@@ -18,10 +18,10 @@ PostgreSQL-data wordt opgeslagen in:
 
 # Release notes:
 v0.2.1 
--Hypotheek pagina toegevoegd ter voorbereiding volgende update. 
--Prisma schedule voorbereid voor hypotheek
--Design aangepast en logo toegevoegd
+1. Hypotheek pagina toegevoegd ter voorbereiding volgende update. 
+2. Prisma schedule voorbereid voor hypotheek
+3. Design aangepast en logo toegevoegd
 
 v0.2 
-Basis Versie
+1. Basis Versie
 
