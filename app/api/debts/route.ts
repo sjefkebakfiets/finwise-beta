@@ -50,14 +50,10 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const name =
-      typeof body.name === "string"
-        ? body.name.trim()
-        : "";
+      typeof body.name === "string" ? body.name.trim() : "";
 
     const type =
-      typeof body.type === "string"
-        ? body.type
-        : "";
+      typeof body.type === "string" ? body.type : "";
 
     const currentBalance = Number(
       body.currentBalance ?? body.value
@@ -118,10 +114,7 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json(
-      { debt },
-      { status: 201 }
-    );
+    return NextResponse.json({ debt }, { status: 201 });
   } catch (error) {
     console.error("Debt creation error:", error);
 
@@ -148,19 +141,13 @@ export async function PATCH(request: Request) {
     const body = await request.json();
 
     const id =
-      typeof body.id === "string"
-        ? body.id
-        : "";
+      typeof body.id === "string" ? body.id : "";
 
     const name =
-      typeof body.name === "string"
-        ? body.name.trim()
-        : "";
+      typeof body.name === "string" ? body.name.trim() : "";
 
     const type =
-      typeof body.type === "string"
-        ? body.type
-        : "";
+      typeof body.type === "string" ? body.type : "";
 
     const currentBalance = Number(
       body.currentBalance ?? body.value
@@ -231,6 +218,26 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const linkedMortgage = await prisma.mortgage.findFirst({
+      where: {
+        debtId: id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (linkedMortgage) {
+      return NextResponse.json(
+        {
+          error:
+            "Deze schuld is gekoppeld aan de hypotheekmodule. Pas de hypotheek aan via de hypotheekmodule.",
+        },
+        { status: 409 }
+      );
+    }
+
     const debt = await prisma.debt.update({
       where: {
         id,
@@ -271,9 +278,7 @@ export async function DELETE(request: Request) {
     const body = await request.json();
 
     const id =
-      typeof body.id === "string"
-        ? body.id
-        : "";
+      typeof body.id === "string" ? body.id : "";
 
     if (!id) {
       return NextResponse.json(
@@ -293,6 +298,26 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: "Schuld niet gevonden." },
         { status: 404 }
+      );
+    }
+
+    const linkedMortgage = await prisma.mortgage.findFirst({
+      where: {
+        debtId: id,
+        userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (linkedMortgage) {
+      return NextResponse.json(
+        {
+          error:
+            "Deze schuld is gekoppeld aan de hypotheekmodule. Verwijder de hypotheek eerst via de hypotheekmodule.",
+        },
+        { status: 409 }
       );
     }
 

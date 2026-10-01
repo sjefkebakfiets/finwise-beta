@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -8,6 +9,7 @@ const navigation = [
   { name: "Dashboard", href: "/" },
   { name: "Budget", href: "/budget" },
   { name: "Vermogen", href: "/vermogen" },
+  { name: "Hypotheek", href: "/hypotheek" },
   { name: "FIRE", href: "/fire" },
   { name: "Planning", href: "/planning" },
   { name: "Doelen", href: "/doelen" },
