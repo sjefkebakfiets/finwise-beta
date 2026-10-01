@@ -50,6 +50,7 @@ async function createCategory(formData: FormData) {
     "SAVING",
     "INVESTMENT",
     "DEBT_PAYMENT",
+    "GUILT_FREE",
   ];
 
   if (!name || !allowedTypes.includes(type) || !Number.isInteger(year)) {
@@ -247,6 +248,10 @@ const groups = [
   {
     type: "DEBT_PAYMENT",
     title: "Schuldaflossing",
+  },
+  {
+    type: "GUILT_FREE",
+    title: "Guilt free",
   },
 ] as const;
 
@@ -534,7 +539,7 @@ export default async function BudgetPage({
     (total, amount) => total + amount,
     0
   );
-  const typeBreakdown = groups.map((group) => {
+  const typeBreakdown = groups.filter((group) => group.type !== "INCOME").map((group) => {
     const typeCategories = categories.filter(
       (category) => category.type === group.type
     );
@@ -576,6 +581,7 @@ export default async function BudgetPage({
     "#2563eb",
     "#8b5cf6",
     "#f59e0b",
+    "#ec4899",
   ];
 
   let chartPosition = 0;
@@ -662,13 +668,15 @@ export default async function BudgetPage({
   const savingGroup = groupTotals.find((group) => group.type === "SAVING");
   const investmentGroup = groupTotals.find((group) => group.type === "INVESTMENT");
   const debtPaymentGroup = groupTotals.find((group) => group.type === "DEBT_PAYMENT");
+  const guiltFreeGroup = groupTotals.find((group) => group.type === "GUILT_FREE");
 
   const plannedAvailableMonthly = months.map((_, index) =>
     (incomeGroup?.totals.plannedMonthly[index] ?? 0) -
     (expenseGroup?.totals.plannedMonthly[index] ?? 0) -
     (savingGroup?.totals.plannedMonthly[index] ?? 0) -
     (investmentGroup?.totals.plannedMonthly[index] ?? 0) -
-    (debtPaymentGroup?.totals.plannedMonthly[index] ?? 0)
+    (debtPaymentGroup?.totals.plannedMonthly[index] ?? 0) -
+    (guiltFreeGroup?.totals.plannedMonthly[index] ?? 0)
   );
 
   const actualAvailableMonthly = months.map((_, index) => {
@@ -677,7 +685,8 @@ export default async function BudgetPage({
       expenseGroup?.totals.actualExistsMonthly[index] ||
       savingGroup?.totals.actualExistsMonthly[index] ||
       investmentGroup?.totals.actualExistsMonthly[index] ||
-      debtPaymentGroup?.totals.actualExistsMonthly[index];
+      debtPaymentGroup?.totals.actualExistsMonthly[index] ||
+      guiltFreeGroup?.totals.actualExistsMonthly[index];
 
     if (!hasAnyActual) return null;
 
@@ -685,7 +694,8 @@ export default async function BudgetPage({
       (expenseGroup?.totals.actualMonthly[index] ?? 0) -
       (savingGroup?.totals.actualMonthly[index] ?? 0) -
       (investmentGroup?.totals.actualMonthly[index] ?? 0) -
-      (debtPaymentGroup?.totals.actualMonthly[index] ?? 0);
+      (debtPaymentGroup?.totals.actualMonthly[index] ?? 0) -
+      (guiltFreeGroup?.totals.actualMonthly[index] ?? 0);
   });
 
   const plannedAvailableYear = plannedAvailableMonthly.reduce((sum, value) => sum + value, 0);
@@ -1143,6 +1153,7 @@ export default async function BudgetPage({
               <option value="SAVING">Sparen</option>
               <option value="INVESTMENT">Beleggen</option>
               <option value="DEBT_PAYMENT">Schuldaflossing</option>
+              <option value="GUILT_FREE">Guilt free</option>
             </select>
           </label>
 
