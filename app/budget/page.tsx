@@ -534,6 +534,83 @@ export default async function BudgetPage({
     (total, amount) => total + amount,
     0
   );
+    const expenseCategoryBreakdown = categories
+    .filter((category) => category.type === "EXPENSE")
+    .map((category) => {
+      const standardAmount = getStandardAmount(
+        category.id,
+        category.standardAmount
+      );
+
+      const annualAmount = Array.from(
+        { length: 12 },
+        (_, index) =>
+          getPlannedAmount(
+            category.id,
+            standardAmount,
+            index + 1
+          )
+      ).reduce((sum, amount) => sum + amount, 0);
+
+      return {
+        id: category.id,
+        name: category.name,
+        amount: annualAmount,
+      };
+    })
+    .filter((category) => category.amount > 0);
+
+  const totalExpenseCategories = expenseCategoryBreakdown.reduce(
+    (sum, category) => sum + category.amount,
+    0
+  );
+
+  const chartColors = [
+    "#2563eb",
+    "#10b981",
+    "#f59e0b",
+    "#f97316",
+    "#8b5cf6",
+    "#06b6d4",
+    "#ec4899",
+    "#64748b",
+    "#84cc16",
+    "#a855f7",
+    "#14b8a6",
+    "#ef4444",
+  ];
+
+  let chartPosition = 0;
+
+  const chartSegments = expenseCategoryBreakdown.map(
+    (category, index) => {
+      const percentage =
+        totalExpenseCategories > 0
+          ? (category.amount / totalExpenseCategories) * 100
+          : 0;
+
+      const start = chartPosition;
+      chartPosition += percentage * 3.6;
+
+      return {
+        ...category,
+        percentage,
+        start,
+        end: chartPosition,
+        color: chartColors[index % chartColors.length],
+      };
+    }
+  );
+
+  const pieChartGradient =
+    chartSegments.length > 0
+      ? `conic-gradient(${chartSegments
+          .map(
+            (segment) =>
+              `${segment.color} ${segment.start}deg ${segment.end}deg`
+          )
+          .join(", ")})`
+      : "#e5e7eb";
   const groupTotals = groups.map((group) => {
     const groupCategories = categories.filter(
       (category) => category.type === group.type
@@ -779,6 +856,190 @@ export default async function BudgetPage({
           >
             {formatEuro(fixedCostsYear)}
           </strong>
+        </div>
+      </div>
+           {/* Uitgaven per categorie */}
+      <div
+        style={{
+          background: "white",
+          border: "1px solid #e5e7eb",
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <h2
+          style={{
+            fontSize: 20,
+            fontWeight: 700,
+            color: "#111827",
+            margin: "0 0 20px",
+          }}
+        >
+          Uitgaven per categorie
+        </h2>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 1fr)",
+            gap: 32,
+            alignItems: "center",
+          }}
+        >
+          {/* Donutgrafiek */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: 12,
+            }}
+          >
+            <div
+              style={{
+                width: 230,
+                height: 230,
+                borderRadius: "50%",
+                background: pieChartGradient,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: 125,
+                  height: 125,
+                  borderRadius: "50%",
+                  background: "white",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: "#6b7280",
+                  }}
+                >
+                  Totaal uitgaven
+                </span>
+
+                <strong
+                  style={{
+                    fontSize: 19,
+                    color: "#111827",
+                    marginTop: 5,
+                  }}
+                >
+                  {formatEuro(totalExpenseCategories)}
+                </strong>
+
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#9ca3af",
+                  }}
+                >
+                  per jaar
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Legenda */}
+          <div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(100px, 1fr) auto auto",
+                gap: "12px 16px",
+                alignItems: "center",
+                paddingBottom: 10,
+                borderBottom: "1px solid #e5e7eb",
+                fontSize: 12,
+                color: "#9ca3af",
+              }}
+            >
+              <span>Categorie</span>
+              <span style={{ textAlign: "right" }}>Bedrag</span>
+              <span style={{ textAlign: "right" }}>%</span>
+            </div>
+
+            {chartSegments.map((segment) => (
+              <div
+                key={segment.id}
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(100px, 1fr) auto auto",
+                  gap: "12px 16px",
+                  alignItems: "center",
+                  padding: "11px 0",
+                  borderBottom: "1px solid #f3f4f6",
+                  fontSize: 13,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 9,
+                    minWidth: 0,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 11,
+                      height: 11,
+                      borderRadius: "50%",
+                      background: segment.color,
+                      flexShrink: 0,
+                    }}
+                  />
+
+                  <span
+                    style={{
+                      color: "#374151",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {segment.name}
+                  </span>
+                </div>
+
+                <strong
+                  style={{
+                    textAlign: "right",
+                    color: "#111827",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {formatEuro(segment.amount)}
+                </strong>
+
+                <strong
+                  style={{
+                    textAlign: "right",
+                    color: "#6b7280",
+                    minWidth: 42,
+                  }}
+                >
+                  {segment.percentage.toFixed(1).replace(".", ",")}%
+                </strong>
+              </div>
+            ))}
+
+            {chartSegments.length === 0 && (
+              <p style={{ color: "#6b7280", fontSize: 13 }}>
+                Er zijn nog geen geplande uitgaven om weer te geven.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       {/* Legend */}
