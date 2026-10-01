@@ -1,6 +1,6 @@
 # Finwise V0.2
 
-Technische testversie voor deployment via Dockge op TrueNAS.
+v0.2 Finwise met basis functionaliteit
 
 
 ## Installatie in Dockge
@@ -21,12 +21,3 @@ PostgreSQL-data wordt opgeslagen in:
 
 ./postgres
 
-Dit komt dus terecht in:
-
-/mnt/raid-z-1/apps/dockge/data/finwise/v0.2/postgres
-
-## Belangrijk
-
-V0.2 gebruikt `prisma db push` bij het starten. Dit is bewust voor deze geïsoleerde technische testomgeving. Voor een productieversie schakelen we over naar gecontroleerde Prisma migrations.
-
-Authenticatie, uitgebreide budgettering, vermogen, scenario-engine, rapportages en overige modules worden daarna gefaseerd toegevoegd.
