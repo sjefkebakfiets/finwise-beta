@@ -123,12 +123,11 @@ export default function FireSettingsForm({
 
   const remaining = Math.max(fireTarget - currentInvestments, 0);
 
-  // Bereken het verwachte aantal maanden tot FIRE.
-  // Het FIRE-doel groeit mee met de inflatie.
   function calculateMonthsToFire(): number | null {
     if (
       settings.monthlyExpenses <= 0 ||
       settings.withdrawalRate <= 0 ||
+      settings.withdrawalRate > 100 ||
       settings.monthlyContribution < 0 ||
       settings.annualReturn <= -100 ||
       settings.inflation <= -100
@@ -146,8 +145,6 @@ export default function FireSettingsForm({
       Math.pow(1 + settings.inflation / 100, 1 / 12) - 1;
 
     while (months <= 1200) {
-      const years = months / 12;
-
       const futureAnnualExpenses =
         settings.monthlyExpenses *
         12 *
@@ -299,4 +296,185 @@ export default function FireSettingsForm({
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns:
+                gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+                gap: "20px",
+                marginTop: "24px",
+              }}
+            >
+              <div>
+                <label style={labelStyle}>
+                  Gewenste maandelijkse uitgaven (€)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={settings.monthlyExpenses}
+                  onChange={(e) =>
+                    updateField("monthlyExpenses", e.target.value)
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>
+                  Verwacht rendement per jaar (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={settings.annualReturn}
+                  onChange={(e) =>
+                    updateField("annualReturn", e.target.value)
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Inflatie per jaar (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={settings.inflation}
+                  onChange={(e) => updateField("inflation", e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Opnamepercentage (%)</label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="100"
+                  step="0.1"
+                  value={settings.withdrawalRate}
+                  onChange={(e) =>
+                    updateField("withdrawalRate", e.target.value)
+                  }
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Maandelijkse inleg (€)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  value={settings.monthlyContribution}
+                  onChange={(e) =>
+                    updateField("monthlyContribution", e.target.value)
+                  }
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#eff6ff",
+                border: "1px solid #bfdbfe",
+                borderRadius: "8px",
+                padding: "16px",
+                marginTop: "24px",
+                lineHeight: 1.7,
+              }}
+            >
+              <strong>Berekening FIRE-doel</strong>
+
+              <p style={{ margin: "8px 0 0" }}>
+                Jaarlijkse uitgaven ÷ opnamepercentage
+              </p>
+
+              <strong style={{ color: "#2563eb", fontSize: "20px" }}>
+                {formatEuro(fireTarget)}
+              </strong>
+            </div>
+
+            <div
+              style={{
+                ...cardStyle,
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                marginTop: "24px",
+              }}
+            >
+              <h3 style={{ marginTop: 0, fontSize: "18px" }}>
+                Verwachte FIRE-leeftijd
+              </h3>
+
+              {monthsToFire === null ? (
+                <p>
+                  Met deze instellingen is geen FIRE-datum binnen 100 jaar
+                  berekend. Controleer je aannames.
+                </p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      fontSize: "36px",
+                      fontWeight: 700,
+                      color: "#15803d",
+                      marginTop: "12px",
+                    }}
+                  >
+                    Leeftijd {fireAge}
+                  </div>
+
+                  <p style={{ marginBottom: "8px" }}>
+                    Geschatte tijd tot FIRE:{" "}
+                    <strong>{yearsToFire} jaar</strong>
+                  </p>
+
+                  <p style={{ color: "#166534", marginBottom: 0 }}>
+                    Uitgaande van een startleeftijd van {START_AGE} jaar.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <p style={{ color: "#6b7280", fontSize: "13px", lineHeight: 1.6 }}>
+              Indicatieve prognose op basis van een gelijkmatig rendement,
+              vaste maandelijkse inleg en jaarlijkse inflatie. Belastingen,
+              kosten en schommelingen in beleggingsrendement zijn niet
+              meegenomen.
+            </p>
+
+            {message && (
+              <p style={{ color: "#16a34a", marginTop: "16px" }}>
+                {message}
+              </p>
+            )}
+
+            {error && (
+              <p style={{ color: "#dc2626", marginTop: "16px" }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              onClick={saveSettings}
+              disabled={saving}
+              style={{
+                marginTop: "24px",
+                padding: "12px 22px",
+                background: saving ? "#9ca3af" : "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "8px",
+                fontWeight: 600,
+                cursor: saving ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving ? "Opslaan..." : "Instellingen opslaan"}
+            </button>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
