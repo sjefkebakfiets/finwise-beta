@@ -1,8 +1,3 @@
-# Finwise V0.2
-
-v0.2 Finwise met basis functionaliteit
-
-
 ## Installatie in Dockge
 
 1. Plaats alle bestanden van deze versie in de V0.2-stackmap.
@@ -20,4 +15,13 @@ v0.2 Finwise met basis functionaliteit
 PostgreSQL-data wordt opgeslagen in:
 
 ./postgres
+
+# Release notes:
+v0.2.1 
+-Hypotheek pagina toegevoegd ter voorbereiding volgende update. 
+-Prisma schedule voorbereid voor hypotheek
+-Design aangepast en logo toegevoegd
+
+v0.2 
+Basis Versie
 
