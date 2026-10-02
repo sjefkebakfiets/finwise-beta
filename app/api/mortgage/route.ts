@@ -15,7 +15,7 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const [mortgages, availableDebts] = await Promise.all([
+    const [mortgages, availableDebts, investmentAssets] = await Promise.all([
       prisma.mortgage.findMany({
         where: { userId },
         include: {
@@ -42,12 +42,26 @@ export async function GET() {
         },
         orderBy: { name: "asc" },
       }),
+
+      prisma.asset.findMany({
+        where: {
+          userId,
+          type: "INVESTMENT",
+        },
+        select: {
+          id: true,
+          name: true,
+          currentValue: true,
+        },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
     return NextResponse.json({
       mortgage: mortgages[0] ?? null,
       mortgages,
       availableDebts,
+      investmentAssets,
     });
   } catch (error) {
     console.error("Mortgage fetch error:", error);
