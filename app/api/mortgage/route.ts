@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -16,8 +15,8 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const [mortgage, availableDebts] = await Promise.all([
-      prisma.mortgage.findFirst({
+    const [mortgages, availableDebts] = await Promise.all([
+      prisma.mortgage.findMany({
         where: { userId },
         include: {
           debt: true,
@@ -31,6 +30,7 @@ export async function GET() {
             orderBy: { startDate: "asc" },
           },
         },
+        orderBy: { createdAt: "asc" },
       }),
 
       prisma.debt.findMany({
@@ -44,14 +44,18 @@ export async function GET() {
     ]);
 
     return NextResponse.json({
-      mortgage,
+      mortgage: mortgages[0] ?? null,
+      mortgages,
       availableDebts,
     });
   } catch (error) {
     console.error("Mortgage fetch error:", error);
 
     return NextResponse.json(
-      { error: "Er ging iets mis bij het ophalen van de hypotheek." },
+      {
+        error:
+          "Er ging iets mis bij het ophalen van de hypotheek.",
+      },
       { status: 500 }
     );
   }
@@ -85,7 +89,9 @@ export async function POST(request: Request) {
       }
 
       const name =
-        typeof body.name === "string" ? body.name.trim() : "";
+        typeof body.name === "string"
+          ? body.name.trim()
+          : "";
 
       const loanType = body.loanType;
 
@@ -101,12 +107,16 @@ export async function POST(request: Request) {
           : Number(body.monthlyPayment);
 
       const startDate = new Date(body.startDate);
-      const endDate =
-        body.endDate ? new Date(body.endDate) : null;
+
+      const endDate = body.endDate
+        ? new Date(body.endDate)
+        : null;
 
       if (
         !name ||
-        !["ANNUITY", "LINEAR", "INTEREST_ONLY"].includes(loanType) ||
+        !["ANNUITY", "LINEAR", "INTEREST_ONLY"].includes(
+          loanType
+        ) ||
         !Number.isFinite(originalPrincipal) ||
         !Number.isFinite(currentBalance) ||
         !Number.isFinite(interestRate) ||
@@ -114,9 +124,11 @@ export async function POST(request: Request) {
         currentBalance < 0 ||
         interestRate < 0 ||
         (monthlyPayment !== null &&
-          (!Number.isFinite(monthlyPayment) || monthlyPayment < 0)) ||
+          (!Number.isFinite(monthlyPayment) ||
+            monthlyPayment < 0)) ||
         Number.isNaN(startDate.getTime()) ||
-        (endDate !== null && Number.isNaN(endDate.getTime()))
+        (endDate !== null &&
+          Number.isNaN(endDate.getTime()))
       ) {
         return NextResponse.json(
           { error: "Controleer de ingevoerde gegevens." },
@@ -157,7 +169,10 @@ export async function POST(request: Request) {
 
     if (!debtId) {
       return NextResponse.json(
-        { error: "Selecteer een bestaande hypotheekschuld." },
+        {
+          error:
+            "Selecteer een bestaande hypotheekschuld.",
+        },
         { status: 400 }
       );
     }
@@ -182,7 +197,10 @@ export async function POST(request: Request) {
 
     if (debt.mortgage) {
       return NextResponse.json(
-        { error: "Deze schuld is al aan een hypotheek gekoppeld." },
+        {
+          error:
+            "Deze schuld is al aan een hypotheek gekoppeld.",
+        },
         { status: 409 }
       );
     }
@@ -209,7 +227,10 @@ export async function POST(request: Request) {
     console.error("Mortgage API error:", error);
 
     return NextResponse.json(
-      { error: "Er ging iets mis bij het verwerken van de hypotheek." },
+      {
+        error:
+          "Er ging iets mis bij het verwerken van de hypotheek.",
+      },
       { status: 500 }
     );
   }

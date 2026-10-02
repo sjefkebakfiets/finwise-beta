@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,9 +5,9 @@ import { useEffect, useState } from "react";
 type Debt = {
   id: string;
   name: string;
-  currentBalance: string;
-  interestRate: string;
-  monthlyPayment: string | null;
+  currentBalance: string | number;
+  interestRate: string | number | null;
+  monthlyPayment: string | number | null;
 };
 
 type Mortgage = {
@@ -21,7 +20,7 @@ type Mortgage = {
 };
 
 export default function HypotheekPage() {
-  const [mortgage, setMortgage] = useState<Mortgage | null>(null);
+  const [mortgages, setMortgages] = useState<Mortgage[]>([]);
   const [availableDebts, setAvailableDebts] = useState<Debt[]>([]);
   const [selectedDebtId, setSelectedDebtId] = useState("");
   const [name, setName] = useState("Mijn hypotheek");
@@ -38,10 +37,16 @@ export default function HypotheekPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Hypotheekgegevens ophalen mislukt.");
+        throw new Error(
+          data.error || "Hypotheekgegevens ophalen mislukt."
+        );
       }
 
-      setMortgage(data.mortgage);
+      const loadedMortgages: Mortgage[] =
+        data.mortgages ??
+        (data.mortgage ? [data.mortgage] : []);
+
+      setMortgages(loadedMortgages);
       setAvailableDebts(data.availableDebts || []);
     } catch (err) {
       setError(
@@ -80,8 +85,13 @@ export default function HypotheekPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Hypotheek koppelen mislukt.");
+        throw new Error(
+          data.error || "Hypotheek koppelen mislukt."
+        );
       }
+
+      setSelectedDebtId("");
+      setName("Mijn hypotheek");
 
       await loadMortgage();
     } catch (err) {
@@ -93,32 +103,75 @@ export default function HypotheekPage() {
     }
   }
 
-  const formatCurrency = (value: string | number) =>
-    new Intl.NumberFormat("nl-NL", {
+  const formatCurrency = (value: string | number | null) => {
+    const amount = Number(value ?? 0);
+
+    return new Intl.NumberFormat("nl-NL", {
       style: "currency",
       currency: "EUR",
-    }).format(Number(value));
+    }).format(Number.isFinite(amount) ? amount : 0);
+  };
+
+  const formatPercentage = (value: string | number | null) => {
+    if (value === null || value === undefined || value === "") {
+      return "Niet ingesteld";
+    }
+
+    return `${Number(value).toLocaleString("nl-NL", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}%`;
+  };
+
+  const totalBalance = mortgages.reduce(
+    (total, mortgage) =>
+      total + Number(mortgage.debt.currentBalance || 0),
+    0
+  );
+
+  const knownMonthlyPayments = mortgages
+    .filter((mortgage) => mortgage.debt.monthlyPayment !== null)
+    .reduce(
+      (total, mortgage) =>
+        total + Number(mortgage.debt.monthlyPayment || 0),
+      0
+    );
+
+  const hasUnknownMonthlyPayment = mortgages.some(
+    (mortgage) => mortgage.debt.monthlyPayment === null
+  );
+
+  const selectedDebt = availableDebts.find(
+    (debt) => debt.id === selectedDebtId
+  );
 
   return (
-    <main style={{ padding: 32, maxWidth: 1400, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 36, margin: 0, color: "#12345b" }}>
-        Hypotheek
-      </h1>
+    <main
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: 24,
+        color: "var(--foreground)",
+      }}
+    >
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 8 }}>
+          Hypotheek
+        </h1>
 
-      <p style={{ marginTop: 8, color: "#6b7280", fontSize: 16 }}>
-        Beheer je hypotheek, leningdelen, aflossingen en toekomstige
-        hypotheekontwikkeling.
-      </p>
+        <p style={{ color: "var(--muted-foreground)" }}>
+          Beheer je hypotheekdelen en bekijk je totale hypotheekschuld.
+        </p>
+      </div>
 
       {error && (
         <div
           style={{
-            marginTop: 24,
-            padding: 16,
-            background: "#fef2f2",
+            background: "#fee2e2",
             color: "#991b1b",
-            border: "1px solid #fecaca",
-            borderRadius: 10,
+            padding: 14,
+            borderRadius: 8,
+            marginBottom: 20,
           }}
         >
           {error}
@@ -126,148 +179,393 @@ export default function HypotheekPage() {
       )}
 
       {loading ? (
-        <p style={{ marginTop: 32 }}>Hypotheekgegevens laden...</p>
-      ) : mortgage ? (
-        <section
-          style={{
-            marginTop: 32,
-            padding: 24,
-            background: "#ffffff",
-            border: "1px solid #e3e7ed",
-            borderRadius: 14,
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>{mortgage.name}</h2>
-
-          <p style={{ color: "#6b7280" }}>
-            Gekoppelde hypotheekschuld
-          </p>
-
-          <h3 style={{ fontSize: 32, margin: "8px 0" }}>
-            {formatCurrency(mortgage.debt.currentBalance)}
-          </h3>
-
-          <p>
-            {mortgage.debt.name} · Rente{" "}
-            {Number(mortgage.debt.interestRate).toLocaleString("nl-NL", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-            %
-          </p>
-
-          <p style={{ color: "#6b7280" }}>
-            Deze hypotheek is gekoppeld aan je bestaande schuld in Vermogen.
-            De schuld wordt niet dubbel meegeteld.
-          </p>
-
-          <hr style={{ border: 0, borderTop: "1px solid #e3e7ed" }} />
-
-          <h3>Volgende uitbreiding</h3>
-          <p style={{ color: "#6b7280", marginBottom: 0 }}>
-            Hier voegen we straks de afzonderlijke leningdelen,
-            aflossingen, rente en hypotheekprognose aan toe.
-          </p>
-        </section>
+        <p>Hypotheekgegevens laden...</p>
       ) : (
-        <section
-          style={{
-            marginTop: 32,
-            padding: 24,
-            background: "#ffffff",
-            border: "1px solid #e3e7ed",
-            borderRadius: 14,
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>Hypotheek koppelen</h2>
-
-          <p style={{ color: "#6b7280" }}>
-            Selecteer een bestaande hypotheekschuld uit Vermogen.
-            Er wordt geen tweede schuld aangemaakt.
-          </p>
-
-          {availableDebts.length === 0 ? (
-            <p>Geen beschikbare hypotheekschulden gevonden.</p>
-          ) : (
-            <>
-              <label
-                htmlFor="mortgageName"
-                style={{ display: "block", marginTop: 20, fontWeight: 600 }}
-              >
-                Naam hypotheek
-              </label>
-
-              <input
-                id="mortgageName"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
+        <>
+          <section
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 16,
+              marginBottom: 28,
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <div
                 style={{
-                  display: "block",
-                  width: "100%",
-                  maxWidth: 500,
-                  padding: 12,
-                  marginTop: 8,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 8,
-                  fontSize: 16,
-                }}
-              />
-
-              <label
-                htmlFor="mortgageDebt"
-                style={{ display: "block", marginTop: 20, fontWeight: 600 }}
-              >
-                Bestaande hypotheekschuld
-              </label>
-
-              <select
-                id="mortgageDebt"
-                value={selectedDebtId}
-                onChange={(event) => setSelectedDebtId(event.target.value)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  maxWidth: 600,
-                  padding: 12,
-                  marginTop: 8,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 8,
-                  fontSize: 16,
-                  background: "#ffffff",
+                  color: "var(--muted-foreground)",
+                  fontSize: 14,
+                  marginBottom: 8,
                 }}
               >
-                <option value="">Selecteer een hypotheekschuld</option>
+                Totale hypotheekschuld
+              </div>
 
-                {availableDebts.map((debt) => (
-                  <option key={debt.id} value={debt.id}>
-                    {debt.name} — {formatCurrency(debt.currentBalance)} —{" "}
-                    {Number(debt.interestRate).toLocaleString("nl-NL")}%
-                  </option>
+              <div style={{ fontSize: 28, fontWeight: 700 }}>
+                {formatCurrency(totalBalance)}
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted-foreground)",
+                  fontSize: 14,
+                  marginBottom: 8,
+                }}
+              >
+                Aantal hypotheekdelen
+              </div>
+
+              <div style={{ fontSize: 28, fontWeight: 700 }}>
+                {mortgages.length}
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: 20,
+              }}
+            >
+              <div
+                style={{
+                  color: "var(--muted-foreground)",
+                  fontSize: 14,
+                  marginBottom: 8,
+                }}
+              >
+                Bekende maandlasten
+              </div>
+
+              <div style={{ fontSize: 28, fontWeight: 700 }}>
+                {formatCurrency(knownMonthlyPayments)}
+              </div>
+
+              {hasUnknownMonthlyPayment && (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "var(--muted-foreground)",
+                    marginTop: 6,
+                  }}
+                >
+                  Niet alle maandlasten zijn ingevuld.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section style={{ marginBottom: 32 }}>
+            <h2
+              style={{
+                fontSize: 21,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              Mijn hypotheekdelen
+            </h2>
+
+            {mortgages.length === 0 ? (
+              <div
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  padding: 24,
+                }}
+              >
+                <p>
+                  Er zijn nog geen hypotheekdelen gekoppeld.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 14 }}>
+                {mortgages.map((mortgage) => (
+                  <div
+                    key={mortgage.id}
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: 12,
+                      padding: 20,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        marginBottom: 18,
+                      }}
+                    >
+                      <div>
+                        <h3
+                          style={{
+                            fontSize: 18,
+                            fontWeight: 600,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {mortgage.debt.name}
+                        </h3>
+
+                        <div
+                          style={{
+                            color: "var(--muted-foreground)",
+                            fontSize: 13,
+                          }}
+                        >
+                          {mortgage.name}
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          fontSize: 22,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {formatCurrency(mortgage.debt.currentBalance)}
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fit, minmax(150px, 1fr))",
+                        gap: 16,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            color: "var(--muted-foreground)",
+                            fontSize: 13,
+                            marginBottom: 5,
+                          }}
+                        >
+                          Rente
+                        </div>
+
+                        <strong>
+                          {formatPercentage(mortgage.debt.interestRate)}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <div
+                          style={{
+                            color: "var(--muted-foreground)",
+                            fontSize: 13,
+                            marginBottom: 5,
+                          }}
+                        >
+                          Maandlast
+                        </div>
+
+                        <strong>
+                          {mortgage.debt.monthlyPayment === null
+                            ? "Niet ingesteld"
+                            : formatCurrency(
+                                mortgage.debt.monthlyPayment
+                              )}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <div
+                          style={{
+                            color: "var(--muted-foreground)",
+                            fontSize: 13,
+                            marginBottom: 5,
+                          }}
+                        >
+                          Extra aflossingen
+                        </div>
+
+                        <strong>
+                          {mortgage.extraPayments?.length || 0}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </select>
+              </div>
+            )}
+          </section>
 
-              <button
-                onClick={createMortgage}
-                disabled={saving || !selectedDebtId}
+          {availableDebts.length > 0 && (
+            <section
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: 22,
+              }}
+            >
+              <h2
                 style={{
-                  marginTop: 24,
-                  padding: "12px 20px",
-                  background:
-                    saving || !selectedDebtId ? "#9ca3af" : "#12345b",
-                  color: "#ffffff",
-                  border: 0,
-                  borderRadius: 8,
-                  fontSize: 15,
+                  fontSize: 21,
                   fontWeight: 600,
-                  cursor:
-                    saving || !selectedDebtId ? "not-allowed" : "pointer",
+                  marginBottom: 8,
                 }}
               >
-                {saving ? "Bezig met koppelen..." : "Hypotheek koppelen"}
-              </button>
-            </>
+                Hypotheekdeel toevoegen
+              </h2>
+
+              <p
+                style={{
+                  color: "var(--muted-foreground)",
+                  fontSize: 14,
+                  marginBottom: 18,
+                }}
+              >
+                Koppel een bestaande hypotheekschuld. De bestaande
+                schuld blijft behouden en wordt niet dubbel geteld.
+              </p>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 12,
+                  alignItems: "end",
+                }}
+              >
+                <div>
+                  <label
+                    htmlFor="debt"
+                    style={{
+                      display: "block",
+                      fontSize: 14,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Bestaande hypotheekschuld
+                  </label>
+
+                  <select
+                    id="debt"
+                    value={selectedDebtId}
+                    onChange={(event) => {
+                      const debtId = event.target.value;
+                      setSelectedDebtId(debtId);
+
+                      const debt = availableDebts.find(
+                        (item) => item.id === debtId
+                      );
+
+                      if (debt) {
+                        setName(debt.name);
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: 11,
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    <option value="">Selecteer hypotheekdeel</option>
+
+                    {availableDebts.map((debt) => (
+                      <option key={debt.id} value={debt.id}>
+                        {debt.name} — {formatCurrency(debt.currentBalance)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="mortgageName"
+                    style={{
+                      display: "block",
+                      fontSize: 14,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Weergavenaam
+                  </label>
+
+                  <input
+                    id="mortgageName"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Bijvoorbeeld Hypotheek Deel 2"
+                    style={{
+                      width: "100%",
+                      padding: 11,
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "var(--background)",
+                      color: "var(--foreground)",
+                    }}
+                  />
+                </div>
+
+                <button
+                  onClick={createMortgage}
+                  disabled={saving || !selectedDebtId}
+                  style={{
+                    padding: "12px 18px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#2563eb",
+                    color: "white",
+                    fontWeight: 600,
+                    cursor: saving ? "wait" : "pointer",
+                    opacity: saving || !selectedDebtId ? 0.6 : 1,
+                  }}
+                >
+                  {saving ? "Koppelen..." : "Hypotheekdeel koppelen"}
+                </button>
+              </div>
+
+              {selectedDebt && (
+                <p
+                  style={{
+                    fontSize: 13,
+                    color: "var(--muted-foreground)",
+                    marginTop: 12,
+                  }}
+                >
+                  Geselecteerd: {selectedDebt.name} —{" "}
+                  {formatCurrency(selectedDebt.currentBalance)}
+                </p>
+              )}
+            </section>
           )}
-        </section>
+
+          {availableDebts.length === 0 && mortgages.length > 0 && (
+            <p
+              style={{
+                color: "var(--muted-foreground)",
+                fontSize: 14,
+              }}
+            >
+              Alle bestaande hypotheekschulden zijn gekoppeld.
+            </p>
+          )}
+        </>
       )}
     </main>
   );
