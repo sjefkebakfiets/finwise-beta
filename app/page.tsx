@@ -62,8 +62,7 @@ export default async function DashboardPage({
 
 
 
-  const [assets, debts, categories, overrides, snapshots] =
-
+  const [assets, debts, categories, overrides, snapshots, mortgages] =
     await Promise.all([
 
       prisma.asset.findMany({
@@ -136,6 +135,16 @@ export default async function DashboardPage({
 
       }),
 
+
+
+      prisma.mortgage.findMany({
+        where: { userId },
+        include: {
+          debt: true,
+          payments: { orderBy: { date: "asc" } },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
 
 
@@ -173,6 +182,32 @@ export default async function DashboardPage({
 
 
   const netWorth = totalAssets - totalDebts;
+
+  const mortgageBalance = mortgages.reduce(
+    (total, mortgage) => total + Number(mortgage.debt.currentBalance ?? 0), 0
+  );
+  const mortgageGrossMonthly = mortgages.reduce(
+    (total, mortgage) => total + Number(mortgage.debt.monthlyPayment ?? 0), 0
+  );
+  const mortgageAnnualEwfTax = mortgages.reduce((total, mortgage) => {
+    const woz = Number(mortgage.wozValue ?? 0);
+    const ewfRate = Number(mortgage.eigenwoningforfaitRate ?? 0) / 100;
+    const taxRate = Number(mortgage.taxRate ?? 0) / 100;
+    return total + woz * ewfRate * taxRate;
+  }, 0);
+  const mortgageAnnualTaxRelief = mortgages.reduce((total, mortgage) => {
+    const balance = Number(mortgage.debt.currentBalance ?? 0);
+    const rate = Number(mortgage.debt.interestRate ?? 0) / 100;
+    const taxRate = Number(mortgage.taxRate ?? 0) / 100;
+    return total + balance * rate * taxRate;
+  }, 0);
+  const mortgageNetMonthly = Math.max(0, mortgageGrossMonthly - Math.max(0, mortgageAnnualTaxRelief - mortgageAnnualEwfTax) / 12);
+  const repaidThisYear = mortgages.reduce((total, mortgage) => total + mortgage.payments
+    .filter((payment) => new Date(payment.date).getFullYear() === currentYear)
+    .reduce((sum, payment) => sum + Number(payment.principalAmount ?? 0) + Number(payment.extraPrincipal ?? 0), 0), 0);
+  const mortgageEndDates = mortgages.map((mortgage) => mortgage.endDate).filter((date): date is Date => Boolean(date));
+  const mortgageFreeYear = mortgageBalance <= 0 ? currentYear : mortgageEndDates.length > 0
+    ? Math.max(...mortgageEndDates.map((date) => new Date(date).getFullYear())) : null;
 
 
 
@@ -774,6 +809,22 @@ export default async function DashboardPage({
 
 
 
+      {/* HYPOTHEEKOVERZICHT */}
+      <section style={{ background: "#ffffff", border: "1px solid #e8edf4", borderRadius: 18, padding: 25, marginBottom: 22, boxShadow: "0 3px 14px rgba(15,23,42,0.025)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+          <div><SectionHeading>Hypotheek</SectionHeading><p style={{ margin: "6px 0 0", color: "#64748b", fontSize: 14 }}>Actuele hypotheekpositie en indicatieve netto maandlast.</p></div>
+          <Link href="/hypotheek" style={{ color: "#2563eb", textDecoration: "none", fontSize: 13, fontWeight: 700 }}>Open hypotheekplanner →</Link>
+        </div>
+        {mortgages.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+            <InfoCard label="Hypotheekschuld" value={formatEuro(mortgageBalance)} />
+            <InfoCard label="Netto maandlast" value={formatEuro(mortgageNetMonthly)} valueColor="#1d4ed8" />
+            <InfoCard label={`Afgelost in ${currentYear}`} value={formatEuro(repaidThisYear)} valueColor="#15803d" />
+            <InfoCard label="Hypotheekvrij" value={mortgageFreeYear ? String(mortgageFreeYear) : "Nog onbekend"} />
+          </div>
+        ) : <div style={{ padding: 18, background: "#f8fafc", border: "1px dashed #d5deea", borderRadius: 12, color: "#64748b", fontSize: 14 }}>Nog geen hypotheek gekoppeld.</div>}
+      </section>
+
       {/* MAANDOVERZICHT */}
 
 
@@ -1321,6 +1372,13 @@ export default async function DashboardPage({
           />
 
 
+
+          <QuickLink
+            href="/hypotheek"
+            title="Hypotheek"
+            description="Bekijk je hypotheek, aflossingsscenario’s en prognose."
+            icon="⌂"
+          />
 
           <QuickLink
 
