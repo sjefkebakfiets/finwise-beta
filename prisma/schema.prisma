@@ -273,6 +273,7 @@ model Mortgage {
   loanParts      MortgageLoanPart[]
   balanceHistory MortgageBalanceHistory[]
   extraPayments  MortgageExtraPayment[]
+  payments       MortgagePayment[]
 
   @@index([userId])
 }
@@ -333,4 +334,19 @@ model MortgageExtraPayment {
 
   @@index([mortgageId])
   @@index([startDate])
+}
+
+// Werkelijke maandbetalingen: rente, reguliere aflossing en extra aflossing blijven apart.
+model MortgagePayment {
+  id                 String   @id @default(cuid())
+  mortgageId         String
+  date               DateTime
+  interestAmount     Decimal  @db.Decimal(18, 2)
+  principalAmount    Decimal  @db.Decimal(18, 2)
+  extraPrincipal     Decimal  @default(0) @db.Decimal(18, 2)
+  taxReliefEstimate  Decimal  @default(0) @db.Decimal(18, 2)
+  note               String?
+  createdAt          DateTime @default(now())
+  mortgage           Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+  @@index([mortgageId, date])
 }
