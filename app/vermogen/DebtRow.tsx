@@ -10,6 +10,8 @@ type DebtRowProps = {
   value: number;
   interestRate: number | null;
   monthlyPayment: number | null;
+  mortgageEndDate: string;
+  fixedRateEndDate: string;
 };
 
 export default function DebtRow({
@@ -19,6 +21,8 @@ export default function DebtRow({
   value,
   interestRate,
   monthlyPayment,
+  mortgageEndDate,
+  fixedRateEndDate,
 }: DebtRowProps) {
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(name);
@@ -30,6 +34,8 @@ export default function DebtRow({
   const [editMonthlyPayment, setEditMonthlyPayment] = useState(
     monthlyPayment == null ? "" : String(monthlyPayment)
   );
+  const [editMortgageEndDate, setEditMortgageEndDate] = useState(mortgageEndDate);
+  const [editFixedRateEndDate, setEditFixedRateEndDate] = useState(fixedRateEndDate);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,6 +56,8 @@ export default function DebtRow({
           currentBalance: editValue,
           interestRate: editInterestRate,
           monthlyPayment: editMonthlyPayment,
+          mortgageEndDate: editMortgageEndDate,
+          fixedRateEndDate: editFixedRateEndDate,
         }),
       });
 
@@ -170,6 +178,23 @@ export default function DebtRow({
             />
           </label>
 
+          {editType === "MORTGAGE" && (
+            <>
+              <label>
+                Einde hypotheek
+                <input type="date" value={editMortgageEndDate}
+                  onChange={(event) => setEditMortgageEndDate(event.target.value)}
+                  style={inputStyle} />
+              </label>
+              <label>
+                Einde rentevaste periode
+                <input type="date" value={editFixedRateEndDate}
+                  onChange={(event) => setEditFixedRateEndDate(event.target.value)}
+                  style={inputStyle} />
+              </label>
+            </>
+          )}
+
           {error && <div style={errorStyle}>{error}</div>}
 
           <div style={{ display: "flex", gap: 10 }}>
@@ -217,6 +242,12 @@ export default function DebtRow({
           {interestRate != null && ` · ${interestRate}% rente`}
           {monthlyPayment != null &&
             ` · ${formatEuro(monthlyPayment)} p/m`}
+          {type === "MORTGAGE" && (
+            <div style={{ marginTop: 5, fontSize: 12, color: "#6b7280" }}>
+              Einde hypotheek: {mortgageEndDate || "Niet ingesteld"}
+              {" · "}Einde rente: {fixedRateEndDate || "Niet ingesteld"}
+            </div>
+          )}
         </div>
 
         {error && <div style={errorStyle}>{error}</div>}
@@ -239,6 +270,8 @@ export default function DebtRow({
             setEditMonthlyPayment(
               monthlyPayment == null ? "" : String(monthlyPayment)
             );
+            setEditMortgageEndDate(mortgageEndDate);
+            setEditFixedRateEndDate(fixedRateEndDate);
             setEditing(true);
           }}
           disabled={loading}

@@ -1,25 +1,18 @@
-
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-
 import AssetForm from "./AssetForm";
 import AssetRow from "./AssetRow";
 import DebtForm from "./DebtForm";
 import DebtRow from "./DebtRow";
 import SnapshotForm from "./SnapshotForm";
-import SnapshotRow from "./SnapshotRow";
 import NetWorthChart from "./NetWorthChart";
-
 export const dynamic = "force-dynamic";
-
 export default async function VermogenPage() {
   const session = await auth();
-
   if (!session?.user?.id) {
     redirect("/login");
   }
-
   const assets = await prisma.asset.findMany({
     where: {
       userId: session.user.id,
@@ -28,16 +21,17 @@ export default async function VermogenPage() {
       createdAt: "asc",
     },
   });
-
   const debts = await prisma.debt.findMany({
     where: {
       userId: session.user.id,
+    },
+    include: {
+      mortgage: true,
     },
     orderBy: {
       createdAt: "asc",
     },
   });
-
   const snapshots = await prisma.netWorthSnapshot.findMany({
     where: {
       userId: session.user.id,
@@ -50,30 +44,24 @@ export default async function VermogenPage() {
       date: "desc",
     },
   });
-
   const totalAssets = assets.reduce(
     (total, asset) => total + Number(asset.currentValue),
     0
   );
-
   const totalDebts = debts.reduce(
     (total, debt) => total + Number(debt.currentBalance),
     0
   );
-
   const netWorth = totalAssets - totalDebts;
-
   const chartSnapshots = snapshots.map((snapshot) => {
     const snapshotAssets = snapshot.assetValues.reduce(
       (total, asset) => total + Number(asset.value),
       0
     );
-
     const snapshotDebts = snapshot.debtValues.reduce(
       (total, debt) => total + Number(debt.value),
       0
     );
-
     return {
       date: snapshot.date.toISOString(),
       assets: snapshotAssets,
@@ -81,7 +69,6 @@ export default async function VermogenPage() {
       netWorth: snapshotAssets - snapshotDebts,
     };
   });
-
   return (
     <main
       style={{
@@ -99,7 +86,6 @@ export default async function VermogenPage() {
         >
           Vermogen
         </h1>
-
         <p
           style={{
             marginTop: 8,
@@ -110,7 +96,6 @@ export default async function VermogenPage() {
           Overzicht van je bezittingen, schulden en netto vermogen.
         </p>
       </div>
-
       <section
         style={{
           display: "grid",
@@ -123,18 +108,15 @@ export default async function VermogenPage() {
           title="Totale bezittingen"
           value={formatEuro(totalAssets)}
         />
-
         <SummaryCard
           title="Totale schulden"
           value={formatEuro(totalDebts)}
         />
-
         <SummaryCard
           title="Netto vermogen"
           value={formatEuro(netWorth)}
         />
       </section>
-
       <section
         style={{
           background: "white",
@@ -148,7 +130,6 @@ export default async function VermogenPage() {
           <h2 style={{ margin: 0 }}>
             Vermogensontwikkeling
           </h2>
-
           <p
             style={{
               marginTop: 6,
@@ -160,10 +141,8 @@ export default async function VermogenPage() {
             vermogen op basis van je historische snapshots.
           </p>
         </div>
-
         <NetWorthChart snapshots={chartSnapshots} />
       </section>
-
       <section
         style={{
           background: "white",
@@ -186,7 +165,6 @@ export default async function VermogenPage() {
             <h2 style={{ margin: 0 }}>
               Bezittingen
             </h2>
-
             <p
               style={{
                 marginTop: 6,
@@ -197,10 +175,8 @@ export default async function VermogenPage() {
               Je huidige bezittingen en hun waarde.
             </p>
           </div>
-
           <AssetForm />
         </div>
-
         {assets.length === 0 ? (
           <div
             style={{
@@ -232,7 +208,6 @@ export default async function VermogenPage() {
           </div>
         )}
       </section>
-
       <section
         style={{
           background: "white",
@@ -255,7 +230,6 @@ export default async function VermogenPage() {
             <h2 style={{ margin: 0 }}>
               Schulden
             </h2>
-
             <p
               style={{
                 marginTop: 6,
@@ -266,10 +240,8 @@ export default async function VermogenPage() {
               Je huidige schulden en openstaande bedragen.
             </p>
           </div>
-
           <DebtForm />
         </div>
-
         {debts.length === 0 ? (
           <div
             style={{
@@ -296,22 +268,15 @@ export default async function VermogenPage() {
                 name={debt.name}
                 type={debt.type}
                 value={Number(debt.currentBalance)}
-                interestRate={
-                  debt.interestRate == null
-                    ? null
-                    : Number(debt.interestRate)
-                }
-                monthlyPayment={
-                  debt.monthlyPayment == null
-                    ? null
-                    : Number(debt.monthlyPayment)
-                }
+                interestRate={debt.interestRate == null ? null : Number(debt.interestRate)}
+                monthlyPayment={debt.monthlyPayment == null ? null : Number(debt.monthlyPayment)}
+                mortgageEndDate={debt.mortgage?.endDate?.toISOString().slice(0, 10) ?? ""}
+                fixedRateEndDate={debt.mortgage?.fixedRateEndDate?.toISOString().slice(0, 10) ?? ""}
               />
             ))}
           </div>
         )}
       </section>
-
       <section
         style={{
           background: "white",
@@ -333,7 +298,6 @@ export default async function VermogenPage() {
             <h2 style={{ margin: 0 }}>
               Vermogenssnapshots
             </h2>
-
             <p
               style={{
                 marginTop: 6,
@@ -344,10 +308,8 @@ export default async function VermogenPage() {
               Historische momentopnames van je vermogen.
             </p>
           </div>
-
           <SnapshotForm />
         </div>
-
         {snapshots.length === 0 ? (
           <div
             style={{
@@ -373,50 +335,39 @@ export default async function VermogenPage() {
                   (total, asset) => total + Number(asset.value),
                   0
                 );
-
               const snapshotDebts =
                 snapshot.debtValues.reduce(
                   (total, debt) => total + Number(debt.value),
                   0
                 );
-
               const snapshotNetWorth =
                 snapshotAssets - snapshotDebts;
-
               const previousSnapshot = snapshots[index + 1];
-
               let change: number | null = null;
               let changePercentage: number | null = null;
-
               if (previousSnapshot) {
                 const previousAssets =
                   previousSnapshot.assetValues.reduce(
                     (total, asset) => total + Number(asset.value),
                     0
                   );
-
                 const previousDebts =
                   previousSnapshot.debtValues.reduce(
                     (total, debt) => total + Number(debt.value),
                     0
                   );
-
                 const previousNetWorth =
                   previousAssets - previousDebts;
-
                 change =
                   snapshotNetWorth - previousNetWorth;
-
                 if (previousNetWorth !== 0) {
                   changePercentage =
                     (change / Math.abs(previousNetWorth)) * 100;
                 }
               }
-
               return (
                 <SnapshotRow
                   key={snapshot.id}
-                  id={snapshot.id}
                   date={snapshot.date}
                   note={snapshot.note}
                   assets={snapshotAssets}
@@ -434,7 +385,6 @@ export default async function VermogenPage() {
     </main>
   );
 }
-
 function SummaryCard({
   title,
   value,
@@ -459,7 +409,6 @@ function SummaryCard({
       >
         {title}
       </div>
-
       <div
         style={{
           fontSize: 30,
@@ -472,7 +421,175 @@ function SummaryCard({
     </div>
   );
 }
-
+function SnapshotRow({
+  date,
+  note,
+  assets,
+  debts,
+  netWorth,
+  change,
+  changePercentage,
+  isLatest,
+}: {
+  date: Date;
+  note: string | null;
+  assets: number;
+  debts: number;
+  netWorth: number;
+  change: number | null;
+  changePercentage: number | null;
+  isLatest: boolean;
+}) {
+  const changePositive = change !== null && change >= 0;
+  return (
+    <div
+      style={{
+        padding: 18,
+        border: "1px solid #e5e7eb",
+        borderRadius: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 20,
+        }}
+      >
+        <div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: 16,
+              }}
+            >
+              {formatDate(date)}
+            </div>
+            {isLatest && (
+              <span
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 999,
+                  background: "#e5e7eb",
+                  color: "#374151",
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                Laatste
+              </span>
+            )}
+          </div>
+          {note && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 13,
+                color: "#6b7280",
+              }}
+            >
+              {note}
+            </div>
+          )}
+        </div>
+        <div
+          style={{
+            textAlign: "right",
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 700,
+              fontSize: 20,
+            }}
+          >
+            {formatEuro(netWorth)}
+          </div>
+          {change !== null && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 13,
+                fontWeight: 600,
+                color: changePositive ? "#166534" : "#b91c1c",
+              }}
+            >
+              {changePositive ? "+" : ""}
+              {formatEuro(change)}
+              {changePercentage !== null &&
+                ` (${changePositive ? "+" : ""}${formatPercentage(
+                  changePercentage
+                )})`}
+            </div>
+          )}
+        </div>
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 12,
+          marginTop: 16,
+          paddingTop: 16,
+          borderTop: "1px solid #f0f0f0",
+        }}
+      >
+        <SnapshotValue
+          label="Bezittingen"
+          value={assets}
+        />
+        <SnapshotValue
+          label="Schulden"
+          value={debts}
+        />
+        <SnapshotValue
+          label="Netto vermogen"
+          value={netWorth}
+          highlight
+        />
+      </div>
+    </div>
+  );
+}
+function SnapshotValue({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "#6b7280",
+          marginBottom: 4,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: highlight ? 700 : 600,
+        }}
+      >
+        {formatEuro(value)}
+      </div>
+    </div>
+  );
+}
 function debtTypeLabel(type: string) {
   const labels: Record<string, string> = {
     MORTGAGE: "Hypotheek",
@@ -480,10 +597,8 @@ function debtTypeLabel(type: string) {
     STUDENT_LOAN: "Studieschuld",
     OTHER: "Overig",
   };
-
   return labels[type] ?? type;
 }
-
 function formatEuro(value: number) {
   return new Intl.NumberFormat("nl-NL", {
     style: "currency",
@@ -492,7 +607,6 @@ function formatEuro(value: number) {
     maximumFractionDigits: 2,
   }).format(value);
 }
-
 function formatPercentage(value: number) {
   return (
     new Intl.NumberFormat("nl-NL", {
@@ -501,7 +615,6 @@ function formatPercentage(value: number) {
     }).format(value) + "%"
   );
 }
-
 function formatDate(date: Date) {
   return new Intl.DateTimeFormat("nl-NL", {
     day: "2-digit",

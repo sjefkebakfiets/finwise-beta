@@ -17,6 +17,12 @@ PostgreSQL-data wordt opgeslagen in:
 ./postgres
 
 # Release notes:
+v0.2.3 
+1. Eigen Woning Forfait toegevoegd in hypotheek module
+
+v0.2.2 
+1. Hypotheek rente aftrek toegevoegd aan de hypotheek module. 
+
 v0.2.1 
 1. Hypotheek pagina toegevoegd ter voorbereiding volgende update. 
 2. Prisma schedule voorbereid voor hypotheek

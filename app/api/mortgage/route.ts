@@ -271,6 +271,40 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
+    if (body.action === "updateTaxSettings") {
+      const mortgageId = typeof body.mortgageId === "string" ? body.mortgageId : "";
+      if (!mortgageId) return NextResponse.json({ error: "Hypotheek-ID ontbreekt." }, { status: 400 });
+
+      const mortgage = await prisma.mortgage.findFirst({
+        where: { id: mortgageId, userId: session.user.id },
+      });
+      if (!mortgage) return NextResponse.json({ error: "Hypotheek niet gevonden." }, { status: 404 });
+
+      const wozValue = Number(body.wozValue);
+      const taxRate = Number(body.taxRate);
+      const eigenwoningforfaitRate = Number(body.eigenwoningforfaitRate);
+      const taxYear = Number(body.taxYear);
+
+      if (
+        !Number.isFinite(wozValue) || wozValue < 0 ||
+        !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100 ||
+        !Number.isFinite(eigenwoningforfaitRate) || eigenwoningforfaitRate < 0 || eigenwoningforfaitRate > 100 ||
+        !Number.isInteger(taxYear) || taxYear < 2000 || taxYear > 2100
+      ) {
+        return NextResponse.json(
+          { error: "Controleer de WOZ-waarde, het belastingpercentage, het eigenwoningforfaitpercentage en het belastingjaar." },
+          { status: 400 }
+        );
+      }
+
+      const updated = await prisma.mortgage.update({
+        where: { id: mortgageId },
+        data: { wozValue, taxRate, eigenwoningforfaitRate, taxYear },
+      });
+
+      return NextResponse.json({ mortgage: updated });
+    }
+
     if (body.action === "updateMortgageDates") {
       const mortgageId = typeof body.mortgageId === "string" ? body.mortgageId : "";
       const mortgage = await prisma.mortgage.findFirst({ where: { id: mortgageId, userId: session.user.id } });

@@ -50,10 +50,14 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     const name =
-      typeof body.name === "string" ? body.name.trim() : "";
+      typeof body.name === "string"
+        ? body.name.trim()
+        : "";
 
     const type =
-      typeof body.type === "string" ? body.type : "";
+      typeof body.type === "string"
+        ? body.type
+        : "";
 
     const currentBalance = Number(
       body.currentBalance ?? body.value
@@ -114,7 +118,10 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ debt }, { status: 201 });
+    return NextResponse.json(
+      { debt },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Debt creation error:", error);
 
@@ -141,13 +148,19 @@ export async function PATCH(request: Request) {
     const body = await request.json();
 
     const id =
-      typeof body.id === "string" ? body.id : "";
+      typeof body.id === "string"
+        ? body.id
+        : "";
 
     const name =
-      typeof body.name === "string" ? body.name.trim() : "";
+      typeof body.name === "string"
+        ? body.name.trim()
+        : "";
 
     const type =
-      typeof body.type === "string" ? body.type : "";
+      typeof body.type === "string"
+        ? body.type
+        : "";
 
     const currentBalance = Number(
       body.currentBalance ?? body.value
@@ -209,6 +222,9 @@ export async function PATCH(request: Request) {
         id,
         userId,
       },
+      include: {
+        mortgage: true,
+      },
     });
 
     if (!existingDebt) {
@@ -218,39 +234,72 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const linkedMortgage = await prisma.mortgage.findFirst({
-      where: {
-        debtId: id,
-        userId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const parseMortgageDate = (value: unknown): Date | null | undefined => {
+      if (value === undefined) return undefined;
+      if (value === null || value === "") return null;
+      if (typeof value !== "string") return new Date("invalid");
+      const parsed = new Date(`${value}T00:00:00.000Z`);
+      return Number.isNaN(parsed.getTime()) ? new Date("invalid") : parsed;
+    };
+    const mortgageEndDate = parseMortgageDate(body.mortgageEndDate);
+    const fixedRateEndDate = parseMortgageDate(body.fixedRateEndDate);
+    if ((mortgageEndDate && Number.isNaN(mortgageEndDate.getTime())) ||
+        (fixedRateEndDate && Number.isNaN(fixedRateEndDate.getTime()))) {
+      return NextResponse.json({ error: "Vul geldige hypotheekdatums in." }, { status: 400 });
+    }
+    // Valideer de combinatie van nieuwe en reeds opgeslagen datums.
+    const effectiveEndDate = mortgageEndDate !== undefined
+      ? mortgageEndDate
+      : existingDebt.mortgage?.endDate ?? null;
+    const effectiveFixedRateEndDate = fixedRateEndDate !== undefined
+      ? fixedRateEndDate
+      : existingDebt.mortgage?.fixedRateEndDate ?? null;
 
-    if (linkedMortgage) {
+    if (
+      effectiveEndDate &&
+      effectiveFixedRateEndDate &&
+      effectiveFixedRateEndDate > effectiveEndDate
+    ) {
       return NextResponse.json(
-        {
-          error:
-            "Deze schuld is gekoppeld aan de hypotheekmodule. Pas de hypotheek aan via de hypotheekmodule.",
-        },
-        { status: 409 }
+        { error: "De rentevaste einddatum kan niet na de hypotheek-einddatum liggen." },
+        { status: 400 }
       );
     }
 
-    const debt = await prisma.debt.update({
-      where: {
-        id,
-      },
-      data: {
-        name,
-        type,
-        currentBalance,
-        interestRate,
-        monthlyPayment,
-      },
-    });
+    const dateData: { endDate?: Date | null; fixedRateEndDate?: Date | null } = {};
+    if (mortgageEndDate !== undefined) dateData.endDate = mortgageEndDate;
+    if (fixedRateEndDate !== undefined) dateData.fixedRateEndDate = fixedRateEndDate;
 
+    // Schuld en hypotheekdatums worden samen opgeslagen. Ontbreekt het
+    // Mortgage-record, dan maakt upsert het aan en koppelt het aan deze Debt.
+    const debt = await prisma.$transaction(async (tx) => {
+      const updatedDebt = await tx.debt.update({
+        where: { id },
+        data: {
+          name,
+          type,
+          currentBalance,
+          interestRate,
+          monthlyPayment,
+        },
+      });
+
+      if (type === "MORTGAGE" && Object.keys(dateData).length > 0) {
+        await tx.mortgage.upsert({
+          where: { debtId: existingDebt.id },
+          update: dateData,
+          create: {
+            userId,
+            debtId: existingDebt.id,
+            name: name || "Mijn hypotheek",
+            endDate: effectiveEndDate,
+            fixedRateEndDate: effectiveFixedRateEndDate,
+          },
+        });
+      }
+
+      return updatedDebt;
+    });
     return NextResponse.json({ debt });
   } catch (error) {
     console.error("Debt update error:", error);
@@ -278,7 +327,9 @@ export async function DELETE(request: Request) {
     const body = await request.json();
 
     const id =
-      typeof body.id === "string" ? body.id : "";
+      typeof body.id === "string"
+        ? body.id
+        : "";
 
     if (!id) {
       return NextResponse.json(
@@ -298,26 +349,6 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: "Schuld niet gevonden." },
         { status: 404 }
-      );
-    }
-
-    const linkedMortgage = await prisma.mortgage.findFirst({
-      where: {
-        debtId: id,
-        userId,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (linkedMortgage) {
-      return NextResponse.json(
-        {
-          error:
-            "Deze schuld is gekoppeld aan de hypotheekmodule. Verwijder de hypotheek eerst via de hypotheekmodule.",
-        },
-        { status: 409 }
       );
     }
 
